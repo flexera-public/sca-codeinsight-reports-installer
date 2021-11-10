@@ -68,6 +68,18 @@ def main():
     else:
         logger.info("Unable to determine valid Code Insight install folder for reports")
         print("Unable to determine valid Code Insight install folder for reports")
+        return
+
+
+    propertiesFile = os.path.join(reportInstallationFolder, propertiesFileName)
+    # Deal with server configuration values
+    serverDetails={}
+    serverDetails["core.server.url"]=serverURL
+    serverDetails["core.server.token"]=adminAuthToken
+
+    # Does a properties file already exist? 
+    propertiesFile = verify_properties_file(serverDetails, propertiesFile)
+
 
 
 #-------------------------------------------------------------------
@@ -112,6 +124,27 @@ def verify_installation_directory(installDir):
         os.mkdir(reportInstallationFolder) 
 
     return(reportInstallationFolder)
+
+#-------------------------------------------------------------------
+def verify_properties_file(serverDetails, propertiesFile):
+    logger.info("Entering verify_properties_file")
+   
+    if not os.path.isfile(propertiesFile):
+        logger.info("    The properties file does not currently exist")
+        logger.info("    Creating properties file: %s" %propertiesFile)
+        print("    Creating properties file: %s" %propertiesFile)
+        filePtr = open(propertiesFile, 'w')
+        json.dump(serverDetails, filePtr)
+        filePtr.close
+    else:
+        logger.info("    %s already exists" %propertiesFile)
+        print("    %s already exists" %propertiesFile)
+
+    #TODO  Check the values passed to values in the file currently and prompt for update if needed
+
+
+
+
 
 #----------------------------------------------------------------------#    
 if __name__ == "__main__":
