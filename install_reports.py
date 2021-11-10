@@ -58,6 +58,8 @@ def main():
     adminAuthToken = args.token
     installDir = args.installationDirctory
 
+    reportVersions = {}
+
     # verify the supplied installDir or current directoyr is valid
     reportInstallationFolder = verify_installation_directory(installDir)
 
@@ -127,6 +129,20 @@ def main():
 
             os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
 
+        # For each report grab the associated version to inform the user as to what is currently installed
+        versionCommand = "git -C " + reportFolder + " describe"
+
+        reportVersion = subprocess.check_output(versionCommand, shell=True)
+        reportVersions[reportName] = reportVersion.rstrip().decode()
+
+
+    #----------------------------------------------
+
+    print("**************************************")
+    print("Currently Installed Reports")
+    for report in sorted(reportVersions):
+
+        print(f"    {report:50} - {reportVersions[report]:10}")
 
 
 
