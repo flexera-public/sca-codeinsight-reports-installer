@@ -68,19 +68,20 @@ def main():
         print("%s is a valid folder for report installation" %reportInstallationFolder)
 
     else:
-        logger.info("Unable to determine valid Code Insight install folder for reports")
+        logger.error("Unable to determine valid Code Insight install folder for reports")
         print("Unable to determine valid Code Insight install folder for reports")
         return
 
 
     propertiesFile = os.path.join(reportInstallationFolder, propertiesFileName)
-    # Deal with server configuration values
-    serverDetails={}
-    serverDetails["core.server.url"]=serverURL
-    serverDetails["core.server.token"]=adminAuthToken
 
     # Does a properties file already exist? 
-    propertiesFile = verify_properties_file(serverDetails, propertiesFile)
+    propertiesFile = verify_properties_file(serverURL, adminAuthToken, propertiesFile)
+
+    if not propertiesFile:
+        logger.error("Invalid server properties file details")
+        print("Invalid server properties file details")
+        return
 
     # Now install the reports
     for repository in repositories:
@@ -191,19 +192,36 @@ def verify_installation_directory(installDir):
     return(reportInstallationFolder)
 
 #-------------------------------------------------------------------
-def verify_properties_file(serverDetails, propertiesFile):
+def verify_properties_file(serverURL, adminAuthToken, propertiesFile):
     logger.info("Entering verify_properties_file")
    
+    # Does the properties file alrady exist?
     if not os.path.isfile(propertiesFile):
         logger.info("    The properties file does not currently exist")
-        logger.info("    Creating properties file: %s" %propertiesFile)
-        print("    Creating properties file: %s" %propertiesFile)
-        filePtr = open(propertiesFile, 'w')
-        json.dump(serverDetails, filePtr)
-        filePtr.close
+
+        # Were values passed by the users?
+        if serverURL and adminAuthToken:
+
+            # Deal with server configuration values
+            serverDetails={}
+            serverDetails["core.server.url"]=serverURL
+            serverDetails["core.server.token"]=adminAuthToken
+
+            print("    Creating properties file: %s" %propertiesFile)
+            filePtr = open(propertiesFile, 'w')
+            json.dump(serverDetails, filePtr)
+            filePtr.close
+
+        else:
+            logger.error("    The URL or token values were not provided")
+            print("    The URL or token values were not provided")
+            return None
+
     else:
         logger.info("    %s already exists" %propertiesFile)
         print("    %s already exists" %propertiesFile)
+
+    return propertiesFile
 
     #TODO  Check the values passed to values in the file currently and prompt for update if needed
 
