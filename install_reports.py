@@ -18,7 +18,9 @@ import subprocess
 
 repositories = []
 repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-inventory.git")
-repositories.append("git@github.com:flexera/sca-codeinsight-reports-project-sbom.git")
+repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-sbom.git")
+repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-vulnerabilities.git")
+repositories.append("https://github.com/flexera/sca-codeinsight-reports-spdx.git")
 
 propertiesFileName = "server_properties.json"
 
