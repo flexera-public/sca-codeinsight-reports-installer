@@ -25,7 +25,7 @@ propertiesFileName = "server_properties.json"
 ###################################################################################
 # Test the version of python to make sure it's at least the version the script
 # was tested on, otherwise there could be unexpected results
-if sys.version_info <= (3, 7):
+if sys.version_info <= (3, 6):
     raise Exception("The current version of Python is less than 3.5 which is unsupported.\n Script created/tested against python version 3.8.1. ")
 else:
     pass
@@ -79,6 +79,55 @@ def main():
 
     # Does a properties file already exist? 
     propertiesFile = verify_properties_file(serverDetails, propertiesFile)
+
+    # Now install the reports
+    for repository in repositories:
+        logger.info("Installing: %s" %repository)
+        print("Installing: %s" %repository)
+
+        reportName = repository.split("/")[-1].split(".")[0]  # Remove the base and .git from the repo name
+        reportFolder = os.path.join(reportInstallationFolder, reportName)
+
+        # Does the directory repo already exist?
+
+        if os.path.isdir(reportFolder):
+            logger.warning("The report folder for %s already exists." %reportName)
+            print("The report folder for %s already exists." %reportName)
+            # TODO - Upgrade??
+
+        else:
+            logger.info("    Cloning (recursively) %s" %repository)
+            print("    Cloning (recursively) %s" %repository)
+
+            # Clone the repsoitory and bring in the submodules
+            Repo.clone_from(repository, reportFolder, recursive=True)
+
+            requirementsFile = "requirements.txt"
+            registrationFile = "registration.py"
+            
+            # Based on how the shell pass the arguemnts clean up the options if on a linux system:w
+            if sys.platform.startswith('linux'):
+                pythonCommand = "python3"
+                pipCommand = "sudo pip3"
+            else:
+                pythonCommand = "python"
+                pipCommand = "pip"                
+
+            requirementsCommand = pipCommand + " install -r " + requirementsFile
+            registrationCommand = pythonCommand + " " + registrationFile + " -reg"
+            os.chdir(reportFolder)
+
+            logger.info("    Installing requirements")
+            print("    Installing requirements")
+            os.system(requirementsCommand)
+
+            logger.info("    Registering report %s" %reportName)
+            print("    Registering report %s" %reportName)
+            os.system(registrationCommand)
+
+            os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
+
+
 
 
 
