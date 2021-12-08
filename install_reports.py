@@ -96,11 +96,15 @@ def main():
         reportFolder = os.path.join(reportInstallationFolder, reportName)
 
         # Does the directory repo already exist?
-
         if os.path.isdir(reportFolder):
             logger.warning("        The report folder for %s already exists." %reportName)
             print("        The report folder for %s already exists." %reportName)
-            # TODO - Upgrade??
+
+            versionCommand = "git describe"
+            os.chdir(reportFolder)
+            reportVersion = subprocess.check_output(versionCommand, shell=True)
+            reportVersions[reportName] = reportVersion.rstrip().decode()
+            os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
 
         else:
             logger.info("        Cloning (recursively) %s" %repository)
@@ -135,14 +139,11 @@ def main():
             print("        Registering report %s" %reportName)
             os.system(registrationCommand)
 
+            versionCommand = "git describe"
+            reportVersion = subprocess.check_output(versionCommand, shell=True)
+            reportVersions[reportName] = reportVersion.rstrip().decode()
+
             os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
-
-        # For each report grab the associated version to inform the user as to what is currently installed
-        versionCommand = "git -C " + reportFolder + " describe"
-
-        reportVersion = subprocess.check_output(versionCommand, shell=True)
-        reportVersions[reportName] = reportVersion.rstrip().decode()
-
 
     #----------------------------------------------
 
@@ -151,7 +152,6 @@ def main():
     for report in sorted(reportVersions):
 
         print(f"    {report:50} - {reportVersions[report]:10}")
-
 
 
 
