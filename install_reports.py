@@ -21,6 +21,7 @@ repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-
 repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-sbom.git")
 repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-vulnerabilities.git")
 repositories.append("https://github.com/flexera/sca-codeinsight-reports-spdx.git")
+repositories.append("https://github.com/flexera/sca-codeinsight-reports-third-party-evidence.git")
 
 propertiesFileName = "server_properties.json"
 
@@ -87,8 +88,9 @@ def main():
 
     # Now install the reports
     for repository in repositories:
-        logger.info("Installing: %s" %repository)
-        print("Installing: %s" %repository)
+        print("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        logger.info("    Installing: %s" %repository)
+        print("    Installing: %s" %repository)
 
         reportName = repository.split("/")[-1].split(".")[0]  # Remove the base and .git from the repo name
         reportFolder = os.path.join(reportInstallationFolder, reportName)
@@ -96,14 +98,15 @@ def main():
         # Does the directory repo already exist?
 
         if os.path.isdir(reportFolder):
-            logger.warning("The report folder for %s already exists." %reportName)
-            print("The report folder for %s already exists." %reportName)
+            logger.warning("        The report folder for %s already exists." %reportName)
+            print("        The report folder for %s already exists." %reportName)
             # TODO - Upgrade??
 
         else:
-            logger.info("    Cloning (recursively) %s" %repository)
-            print("    Cloning (recursively) %s" %repository)
+            logger.info("        Cloning (recursively) %s" %repository)
+            print("        Cloning (recursively) %s" %repository)
 
+            sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
             # Clone the repsoitory and bring in the submodules
             Repo.clone_from(repository, reportFolder, recursive=True)
 
@@ -122,12 +125,14 @@ def main():
             registrationCommand = pythonCommand + " " + registrationFile + " -reg"
             os.chdir(reportFolder)
 
-            logger.info("    Installing requirements")
-            print("    Installing requirements")
+            sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
+            logger.info("        Installing requirements")
+            print("        Installing requirements")
             os.system(requirementsCommand)
 
-            logger.info("    Registering report %s" %reportName)
-            print("    Registering report %s" %reportName)
+            sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
+            logger.info("        Registering report %s" %reportName)
+            print("        Registering report %s" %reportName)
             os.system(registrationCommand)
 
             os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
