@@ -15,7 +15,6 @@ import json
 from git import Repo
 import subprocess
 
-
 repositories = []
 repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-inventory.git")
 repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-sbom.git")
@@ -35,14 +34,11 @@ else:
 
 logfileName = os.path.dirname(os.path.realpath(__file__)) + "/_install_reports.log"
 
-
 ###################################################################################
 #  Set up logging handler to allow for different levels of logging to be capture
 logging.basicConfig(format='%(asctime)s,%(msecs)-3d  %(levelname)-8s [%(filename)-30s:%(lineno)-4d]  %(message)s', datefmt='%Y-%m-%d:%H:%M:%S', filename=logfileName, filemode='w',level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logging.getLogger("urllib3").setLevel(logging.WARNING)  # Disable logging for requests module
-
-
 
 ####################################################################################
 # Create command line argument options
@@ -50,7 +46,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-server', "--server", help="Code Insight server URL")
 parser.add_argument("-token", "--token", help="Auth token with admin access")
 parser.add_argument("-installDir", "--installationDirctory", help="Code Insight base installation folder?")
-
 
 #------------------------------------------------------------------------------------------------------------------------------
 def main():
@@ -63,6 +58,18 @@ def main():
 
     reportVersions = {}
 
+    # Based on how the shell pass the arguemnts clean up the options if on a linux system
+    if sys.platform.startswith('linux'):
+        pythonCommand = "python3"
+        pipCommand = "sudo pip3"
+    else:
+        pythonCommand = "python"
+        pipCommand = "pip"    
+
+    reportRequirementsFile = "requirements.txt"
+    reportRegistrationFile = "registration.py"
+    gitDescribeCommand = "git describe"
+
     # verify the supplied installDir or current directoyr is valid
     reportInstallationFolder = verify_installation_directory(installDir)
 
@@ -74,7 +81,6 @@ def main():
         logger.error("Unable to determine valid Code Insight install folder for reports")
         print("Unable to determine valid Code Insight install folder for reports")
         return
-
 
     propertiesFile = os.path.join(reportInstallationFolder, propertiesFileName)
 
@@ -100,9 +106,8 @@ def main():
             logger.warning("        The report folder for %s already exists." %reportName)
             print("        The report folder for %s already exists." %reportName)
 
-            versionCommand = "git describe"
             os.chdir(reportFolder)
-            reportVersion = subprocess.check_output(versionCommand, shell=True)
+            reportVersion = subprocess.check_output(gitDescribeCommand, shell=True)
             reportVersions[reportName] = reportVersion.rstrip().decode()
             os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
 
@@ -113,20 +118,9 @@ def main():
             sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
             # Clone the repsoitory and bring in the submodules
             Repo.clone_from(repository, reportFolder, recursive=True)
-
-            requirementsFile = "requirements.txt"
-            registrationFile = "registration.py"
-            
-            # Based on how the shell pass the arguemnts clean up the options if on a linux system:w
-            if sys.platform.startswith('linux'):
-                pythonCommand = "python3"
-                pipCommand = "sudo pip3"
-            else:
-                pythonCommand = "python"
-                pipCommand = "pip"                
-
-            requirementsCommand = pipCommand + " install -r " + requirementsFile
-            registrationCommand = pythonCommand + " " + registrationFile + " -reg"
+             
+            requirementsCommand = pipCommand + " install -r " + reportRequirementsFile
+            registrationCommand = pythonCommand + " " + reportRegistrationFile + " -reg"
             os.chdir(reportFolder)
 
             sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
@@ -139,8 +133,7 @@ def main():
             print("        Registering report %s" %reportName)
             os.system(registrationCommand)
 
-            versionCommand = "git describe"
-            reportVersion = subprocess.check_output(versionCommand, shell=True)
+            reportVersion = subprocess.check_output(gitDescribeCommand, shell=True)
             reportVersions[reportName] = reportVersion.rstrip().decode()
 
             os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
