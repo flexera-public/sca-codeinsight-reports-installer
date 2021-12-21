@@ -12,15 +12,16 @@ import os
 import logging
 import argparse
 import json
-from git import Repo
 import subprocess
 
 repositories = []
-repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-inventory.git")
-repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-sbom.git")
-repositories.append("https://github.com/flexera/sca-codeinsight-reports-project-vulnerabilities.git")
-repositories.append("https://github.com/flexera/sca-codeinsight-reports-spdx.git")
-repositories.append("https://github.com/flexera/sca-codeinsight-reports-third-party-evidence.git")
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-inventory.git")
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-sbom.git")
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-vulnerabilities.git")
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-spdx.git")
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-third-party-evidence.git")
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-comparison.git")
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-claim-files.git")
 
 propertiesFileName = "server_properties.json"
 
@@ -68,6 +69,7 @@ def main():
 
     reportRequirementsFile = "requirements.txt"
     reportRegistrationFile = "registration.py"
+    gitCloneCommand = "git clone --recursive"
     gitDescribeCommand = "git describe"
 
     # verify the supplied installDir or current directoyr is valid
@@ -117,8 +119,9 @@ def main():
 
             sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
             # Clone the repsoitory and bring in the submodules
-            Repo.clone_from(repository, reportFolder, recursive=True)
-             
+        
+            os.system(gitCloneCommand + " " + repository + " " + reportFolder)
+
             requirementsCommand = pipCommand + " install -r " + reportRequirementsFile
             registrationCommand = pythonCommand + " " + reportRegistrationFile + " -reg"
             os.chdir(reportFolder)
