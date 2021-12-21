@@ -7,9 +7,7 @@ The `sca-codeinsight-reports-installer` repository allows users to easily instal
 
 **Python Requirements**
 
-A minimum vesion of python 3.5 is required to run this script.  The required python modules can be installed with the use of the [requirements.txt](requirements.txt) file which can be loaded via.
-
-	pip install -r requirements.txt
+A minimum vesion of python 3.5 is required to run this script.  No additional python modules should be required to run this program
 
 ## Usage
 
