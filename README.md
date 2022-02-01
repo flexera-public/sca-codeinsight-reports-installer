@@ -18,11 +18,11 @@ The script accepts three arguments to be supplied by the user
 
 To run the script on a windows system
     
-	python install_reports.py -server ${Server URL} -token ${Admin Auth Token} -installDir $(CodeInsight Install Directory}
+	python install_reports.py -server http(s)://FQDN:port -token ${Admin Auth Token} -installDir $(CodeInsight Installation Directory}
 
 To run the script on a Linux system
     
-	python3 install_reports.py -server ${Server URL} -token ${Admin Auth Token} -installDir $(CodeInsight Install Directory}
+	python3 install_reports.py -server http(s)://FQDN:port -token ${Admin Auth Token} -installDir $(CodeInsight Installation Directory}
 
 The [install_reports.py](install_reports.py) script will
 
@@ -34,6 +34,7 @@ The [install_reports.py](install_reports.py) script will
     - sudo user permissions maybe required on linux systems
 - Register the report with Code Insight
 - Display the current versions of all of the reports installed by the script
+- Remove the Admin Authorization token from the server.properties.json file
 
 
 

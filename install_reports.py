@@ -44,7 +44,7 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)  # Disable logging for re
 ####################################################################################
 # Create command line argument options
 parser = argparse.ArgumentParser()
-parser.add_argument('-server', "--server", help="Code Insight server URL")
+parser.add_argument('-server', "--server", help="Code Insight server URL - http(s)://FQDN:port")
 parser.add_argument("-token", "--token", help="Auth token with admin access")
 parser.add_argument("-installDir", "--installationDirctory", help="Code Insight base installation folder?")
 
