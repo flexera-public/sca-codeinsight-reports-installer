@@ -45,7 +45,7 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)  # Disable logging for re
 # Create command line argument options
 parser = argparse.ArgumentParser()
 parser.add_argument('-server', "--server", help="Code Insight server URL - http(s)://FQDN:port")
-parser.add_argument("-token", "--token", help="Auth token with admin access")
+parser.add_argument("-token", "--token", help="Auth token with admin access", required=True)
 parser.add_argument("-installDir", "--installationDirctory", help="Code Insight base installation folder?")
 
 #------------------------------------------------------------------------------------------------------------------------------
@@ -143,12 +143,15 @@ def main():
 
     #----------------------------------------------
 
+
     print("**************************************")
     print("Currently Installed Reports")
     for report in sorted(reportVersions):
 
         print(f"    {report:50} - {reportVersions[report]:10}")
 
+    # Now that that reports are installed remove the token from the properties file
+    sanitize_properties_file(serverURL, propertiesFile)
 
 
 #-------------------------------------------------------------------
@@ -156,7 +159,7 @@ def verify_installation_directory(installDir):
     logger.info("Entering verify_installation_directory")
 
     # Was a directory supplied and if so is it valid?
-    if  installDir:
+    if installDir:
         if os.path.isdir(installDir):
             logger.info("    Supplied directory %s  does exist" %installDir)
         else:
@@ -228,7 +231,22 @@ def verify_properties_file(serverURL, adminAuthToken, propertiesFile):
 
     #TODO  Check the values passed to values in the file currently and prompt for update if needed
 
+#-------------------------------------------------------------------
+def sanitize_properties_file(serverURL, propertiesFile):
+    logger.info("Entering sanitize_properties_file")
 
+    # Just over write the current file without token
+    serverDetails={}
+    serverDetails["core.server.url"]=serverURL
+
+    print("    Updating properties file: %s" %propertiesFile)
+    filePtr = open(propertiesFile, 'w')
+    json.dump(serverDetails, filePtr)
+    filePtr.close
+
+    logger.info("Exiting sanitize_properties_file")
+
+   
 
 
 
