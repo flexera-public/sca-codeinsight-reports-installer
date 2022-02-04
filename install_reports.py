@@ -182,7 +182,7 @@ def main():
         print(f"    {report:50} - {reportVersions[report]:10}")
 
     # Now that that reports are installed remove the token from the properties file
-    #sanitize_properties_file(serverURL, propertiesFile)
+    sanitize_properties_file(propertiesFile)
 
 
 #-------------------------------------------------------------------
@@ -231,6 +231,7 @@ def verify_installation_directory(installDir):
 #-------------------------------------------------------------------
 def verify_properties_file(serverURL, adminAuthToken, propertiesFile):
     logger.info("Entering verify_properties_file")
+
    
     # Does the properties file alrady exist?
     if not os.path.isfile(propertiesFile):
@@ -258,22 +259,50 @@ def verify_properties_file(serverURL, adminAuthToken, propertiesFile):
         logger.info("    %s already exists" %propertiesFile)
         print("    %s already exists" %propertiesFile)
 
+        # Open the file up to see what's there and compare to what's provided
+        filePtr = open(propertiesFile, "r")
+        configData = json.load(filePtr)
+        filePtr.close
+
+        # Always update the server URL
+        configData["core.server.url"]=serverURL
+            
+        # Is there already a token if so back it up to restore later 
+        if "core.server.token" in configData:
+            configData["core.server.token.orig"] = configData["core.server.token"]
+            configData["core.server.token"] = adminAuthToken
+
+        # Now write the data back to the file
+        print("    Updating properties file: %s" %propertiesFile)
+        filePtr = open(propertiesFile, 'w')
+        json.dump(configData, filePtr)
+        filePtr.close
+
     return propertiesFile
 
     #TODO  Check the values passed to values in the file currently and prompt for update if needed
 
 #-------------------------------------------------------------------
-def sanitize_properties_file(serverURL, propertiesFile):
+def sanitize_properties_file(propertiesFile):
     logger.info("Entering sanitize_properties_file")
 
-    # Just over write the current file without token
-    serverDetails={}
-    serverDetails["core.server.url"]=serverURL
+    # Open the file up to see what's there and compare to what's provided
+    filePtr = open(propertiesFile, "r")
+    configData = json.load(filePtr)
+    filePtr.close
 
+    # Is there already a token if so back it up to restore later 
+    if "core.server.token.orig" in configData:
+        configData["core.server.token"] = configData["core.server.token.orig"]
+        configData.pop("core.server.token.orig")
+    else:
+        configData.pop("core.server.token")
+
+    # Now write the data back to the file
     print("    Updating properties file: %s" %propertiesFile)
     filePtr = open(propertiesFile, 'w')
-    json.dump(serverDetails, filePtr)
-    filePtr.close
+    json.dump(configData, filePtr)
+    filePtr.close    
 
     logger.info("Exiting sanitize_properties_file")
 
