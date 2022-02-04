@@ -9,6 +9,10 @@ The `sca-codeinsight-reports-installer` repository allows users to easily instal
 
 A minimum vesion of python 3.5 is required to run this script.  No additional python modules should be required to run this program
 
+**Git Requirements**
+
+This script will automatically pull multiple resositories from github so git is required.
+
 ## Usage
 
 The script accepts three arguments to be supplied by the user
