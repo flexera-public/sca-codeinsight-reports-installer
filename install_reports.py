@@ -35,6 +35,21 @@ else:
 
 logfileName = os.path.dirname(os.path.realpath(__file__)) + "/_install_reports.log"
 
+reportRequirementsFile = "requirements.txt"
+reportRegistrationFile = "registration.py"
+gitCloneCommandBase = "git clone --recursive"
+gitPullCommand = "git pull --recurse-submodules"
+gitDescribeCommand = "git describe"
+
+# Based on how the shell pass the arguemnts clean up the options if on a linux system
+if sys.platform.startswith('linux'):
+    pythonCommand = "python3"
+    pipCommand = "sudo pip3"
+else:
+    pythonCommand = "python"
+    pipCommand = "pip"    
+
+
 ###################################################################################
 #  Set up logging handler to allow for different levels of logging to be capture
 logging.basicConfig(format='%(asctime)s,%(msecs)-3d  %(levelname)-8s [%(filename)-30s:%(lineno)-4d]  %(message)s', datefmt='%Y-%m-%d:%H:%M:%S', filename=logfileName, filemode='w',level=logging.DEBUG)
@@ -58,19 +73,6 @@ def main():
     installDir = args.installationDirctory
 
     reportVersions = {}
-
-    # Based on how the shell pass the arguemnts clean up the options if on a linux system
-    if sys.platform.startswith('linux'):
-        pythonCommand = "python3"
-        pipCommand = "sudo pip3"
-    else:
-        pythonCommand = "python"
-        pipCommand = "pip"    
-
-    reportRequirementsFile = "requirements.txt"
-    reportRegistrationFile = "registration.py"
-    gitCloneCommand = "git clone --recursive"
-    gitDescribeCommand = "git describe"
 
     # verify the supplied installDir or current directoyr is valid
     reportInstallationFolder = verify_installation_directory(installDir)
@@ -105,13 +107,36 @@ def main():
 
         # Does the directory repo already exist?
         if os.path.isdir(reportFolder):
-            logger.warning("        The report folder for %s already exists." %reportName)
-            print("        The report folder for %s already exists." %reportName)
+            logger.info("        The report folder for %s already exists. Checking for updates." %reportName)
+            print("        The report folder for %s already exists. Checking for updates." %reportName)
 
             os.chdir(reportFolder)
-            reportVersion = subprocess.check_output(gitDescribeCommand, shell=True)
-            reportVersions[reportName] = reportVersion.rstrip().decode()
-            os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
+            pullResponse = subprocess.run(gitPullCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+            if "Already up to date." in pullResponse.stdout.decode():
+                logger.info("        The latest updates are already available.")
+                print("        The latest updates are already available.")
+
+            else:
+
+                logger.info("        Latest updates have been pulled.")
+                print("        Latest updates have been pulled.")
+                
+                # Since there was an update verify requiremetns are met
+                sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
+                logger.info("        Updating requirements")
+                print("        Updating requirements")
+                requirementsCommand = pipCommand + " install -r " + reportRequirementsFile
+                requirementsResponse = subprocess.run(requirementsCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                logger.debug(requirementsResponse.stdout.decode())
+                
+                # Since there was an update update the registration
+                sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
+                logger.info("        Updating report registration for %s" %reportName)
+                print("        Updating report registration for %s" %reportName)
+                registrationCommand = pythonCommand + " " + reportRegistrationFile + " -update"
+                registrationResponse = subprocess.run(registrationCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                logger.debug(registrationResponse.stdout.decode())
 
         else:
             logger.info("        Cloning (recursively) %s" %repository)
@@ -120,7 +145,10 @@ def main():
             sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
             # Clone the repsoitory and bring in the submodules
         
-            os.system(gitCloneCommand + " " + repository + " " + reportFolder)
+            gitCloneCommand = gitCloneCommandBase + " " + repository + " " + reportFolder
+
+            cloneResponse = subprocess.run(gitCloneCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            logger.debug(cloneResponse.stdout.decode())
 
             requirementsCommand = pipCommand + " install -r " + reportRequirementsFile
             registrationCommand = pythonCommand + " " + reportRegistrationFile + " -reg"
@@ -129,17 +157,20 @@ def main():
             sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
             logger.info("        Installing requirements")
             print("        Installing requirements")
-            os.system(requirementsCommand)
+            requirementsResponse = subprocess.run(requirementsCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            logger.debug(requirementsResponse.stdout.decode())
 
             sys.stdout.flush()  # Ensure that the message are flushed out before the os commands
             logger.info("        Registering report %s" %reportName)
             print("        Registering report %s" %reportName)
-            os.system(registrationCommand)
+            registrationResponse = subprocess.run(registrationCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            logger.debug(registrationResponse.stdout.decode())
 
-            reportVersion = subprocess.check_output(gitDescribeCommand, shell=True)
-            reportVersions[reportName] = reportVersion.rstrip().decode()
+        # Collect the report version for summary
+        reportVersion = subprocess.check_output(gitDescribeCommand, shell=True)
+        reportVersions[reportName] = reportVersion.rstrip().decode()
 
-            os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
+        os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
 
     #----------------------------------------------
 
@@ -151,7 +182,7 @@ def main():
         print(f"    {report:50} - {reportVersions[report]:10}")
 
     # Now that that reports are installed remove the token from the properties file
-    sanitize_properties_file(serverURL, propertiesFile)
+    #sanitize_properties_file(serverURL, propertiesFile)
 
 
 #-------------------------------------------------------------------
