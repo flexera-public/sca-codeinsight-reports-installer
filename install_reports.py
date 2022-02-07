@@ -270,7 +270,8 @@ def verify_properties_file(serverURL, adminAuthToken, propertiesFile):
         # Is there already a token if so back it up to restore later 
         if "core.server.token" in configData:
             configData["core.server.token.orig"] = configData["core.server.token"]
-            configData["core.server.token"] = adminAuthToken
+
+        configData["core.server.token"] = adminAuthToken
 
         # Now write the data back to the file
         print("    Updating properties file: %s" %propertiesFile)
