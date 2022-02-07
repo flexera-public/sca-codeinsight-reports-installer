@@ -35,7 +35,10 @@ if sys.version_info <= (3, 6):
 else:
     pass
 
-logfileName = os.path.dirname(os.path.realpath(__file__)) + "/_install_reports.log"
+installerDirectory = os.path.dirname(os.path.realpath(__file__))
+logfileName = installerDirectory + "/_install_reports.log"
+defaultRegistrationLogFileName = "_custom_report_registration.log" # Default log name for report registration scripts
+
 
 reportRequirementsFile = "requirements.txt"
 reportRegistrationFile = "registration.py"
@@ -172,9 +175,15 @@ def main():
                 print("        There was a probem encountered while attempting to register the report")
                 print("            %s" %registrationResponse.stdout.decode())
 
+                # Copy the installation log file to the installer directory
+                movedLogFile = installerDirectory + "/" + reportName + "_installation.log"
+                print(movedLogFile)
+                shutil.copyfile(defaultRegistrationLogFileName, movedLogFile)
+
                 os.chdir(reportInstallationFolder)
 
                 try:
+
                     shutil.rmtree(reportFolder, onerror=change_file_read_attribute)
                     print("        Removing folder: %s" %reportFolder)
                 except:
@@ -186,6 +195,11 @@ def main():
         # Collect the report version for summary
         reportVersion = subprocess.check_output(gitDescribeCommand, shell=True)
         reportVersions[reportName] = reportVersion.rstrip().decode()
+
+        # Copy the installation log file to the installer directory
+        movedLogFile = installerDirectory + "/" + reportName + "_installation.log"
+        print(movedLogFile)
+        shutil.copyfile(defaultRegistrationLogFileName, movedLogFile)
 
         os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
 
