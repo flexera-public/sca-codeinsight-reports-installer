@@ -176,14 +176,13 @@ def main():
                 print("            %s" %registrationResponse.stdout.decode())
 
                 # Copy the installation log file to the installer directory
-                movedLogFile = installerDirectory + "/" + reportName + "_installation.log"
-                print(movedLogFile)
+                movedLogFile = os.path.join(installerDirectory, reportName + "_installation.log")
+                logger.info("Moving report registration logfile to %s" %movedLogFile)
                 shutil.copyfile(defaultRegistrationLogFileName, movedLogFile)
 
                 os.chdir(reportInstallationFolder)
 
                 try:
-
                     shutil.rmtree(reportFolder, onerror=change_file_read_attribute)
                     print("        Removing folder: %s" %reportFolder)
                 except:
@@ -197,8 +196,8 @@ def main():
         reportVersions[reportName] = reportVersion.rstrip().decode()
 
         # Copy the installation log file to the installer directory
-        movedLogFile = installerDirectory + "/" + reportName + "_installation.log"
-        print(movedLogFile)
+        movedLogFile = os.path.join(installerDirectory, reportName + "_installation.log")
+        logger.info("Moving report registration logfile to %s" %movedLogFile)
         shutil.copyfile(defaultRegistrationLogFileName, movedLogFile)
 
         os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
