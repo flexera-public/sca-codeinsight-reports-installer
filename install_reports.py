@@ -13,6 +13,8 @@ import logging
 import argparse
 import json
 import subprocess
+import shutil
+import stat
 
 repositories = []
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-inventory.git")
@@ -164,7 +166,22 @@ def main():
             logger.info("        Registering report %s" %reportName)
             print("        Registering report %s" %reportName)
             registrationResponse = subprocess.run(registrationCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            logger.debug(registrationResponse.stdout.decode())
+            
+            if "has been registed with a report ID" not in registrationResponse.stdout.decode():
+                logger.debug(registrationResponse.stdout.decode())
+                print("        There was a probem encountered while attempting to register the report")
+                print("            %s" %registrationResponse.stdout.decode())
+
+                os.chdir(reportInstallationFolder)
+
+                try:
+                    shutil.rmtree(reportFolder, onerror=change_file_read_attribute)
+                    print("        Removing folder: %s" %reportFolder)
+                except:
+                    print("        Manually remove folder: %s" %reportFolder)
+                print("        Verify server/token information and attempt to install again") 
+                sanitize_properties_file(propertiesFile)              
+                sys.exit()
 
         # Collect the report version for summary
         reportVersion = subprocess.check_output(gitDescribeCommand, shell=True)
@@ -173,16 +190,17 @@ def main():
         os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
 
     #----------------------------------------------
-
-
+    # Now that that reports are installed remove the token from the properties file
+    sanitize_properties_file(propertiesFile)
+    
+    print("")
     print("**************************************")
     print("Currently Installed Reports")
     for report in sorted(reportVersions):
 
         print(f"    {report:50} - {reportVersions[report]:10}")
 
-    # Now that that reports are installed remove the token from the properties file
-    sanitize_properties_file(propertiesFile)
+
 
 
 #-------------------------------------------------------------------
@@ -307,8 +325,10 @@ def sanitize_properties_file(propertiesFile):
 
     logger.info("Exiting sanitize_properties_file")
 
-   
-
+#----------------------------------------------------------------------#     
+def change_file_read_attribute(func, path, exc_info):
+    os.chmod( path, stat.S_IWRITE )
+    os.unlink( path )
 
 
 #----------------------------------------------------------------------#    
