@@ -115,7 +115,7 @@ def main():
             os.chdir(reportFolder)
             pullResponse = subprocess.run(gitPullCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-            if "Already up to date." in pullResponse.stdout.decode():
+            if "Already up to date." in pullResponse.stdout.decode() or  "Already up-to-date" in pullResponse.stdout.decode():
                 logger.info("        The latest updates are already available.")
                 print("        The latest updates are already available.")
 
