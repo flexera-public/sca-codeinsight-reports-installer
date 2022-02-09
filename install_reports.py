@@ -67,6 +67,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-server', "--server", help="Code Insight server URL - http(s)://FQDN:port")
 parser.add_argument("-token", "--token", help="Auth token with admin access", required=True)
 parser.add_argument("-installDir", "--installationDirctory", help="Code Insight base installation folder?")
+parser.add_argument("-certificate", "--certificate", help="Path to self signed certificate")
 
 #------------------------------------------------------------------------------------------------------------------------------
 def main():
@@ -76,6 +77,16 @@ def main():
     serverURL = args.server
     adminAuthToken = args.token
     installDir = args.installationDirctory
+
+    try:
+        certificate = args.certificate
+        certificatePath = os.path.normpath(certificate)
+        os.environ["REQUESTS_CA_BUNDLE"] = certificatePath
+        os.environ["SSL_CERT_FILE"] = certificatePath
+        logger.info("Self signed certificate provied as argument")
+    except:
+        logger.info("No self signed certificate was provied as argument")
+        certificatePath = None
 
     reportVersions = {}
 
@@ -94,7 +105,7 @@ def main():
     propertiesFile = os.path.join(reportInstallationFolder, propertiesFileName)
 
     # Does a properties file already exist? 
-    propertiesFile = verify_properties_file(serverURL, adminAuthToken, propertiesFile)
+    propertiesFile = verify_properties_file(serverURL, adminAuthToken, certificate, propertiesFile)
 
     if not propertiesFile:
         logger.error("Invalid server properties file details")
@@ -214,8 +225,6 @@ def main():
         print(f"    {report:50} - {reportVersions[report]:10}")
 
 
-
-
 #-------------------------------------------------------------------
 def verify_installation_directory(installDir):
     logger.info("Entering verify_installation_directory")
@@ -260,7 +269,7 @@ def verify_installation_directory(installDir):
     return(reportInstallationFolder)
 
 #-------------------------------------------------------------------
-def verify_properties_file(serverURL, adminAuthToken, propertiesFile):
+def verify_properties_file(serverURL, adminAuthToken, certificatePath, propertiesFile):
     logger.info("Entering verify_properties_file")
 
    
@@ -275,6 +284,10 @@ def verify_properties_file(serverURL, adminAuthToken, propertiesFile):
             serverDetails={}
             serverDetails["core.server.url"]=serverURL
             serverDetails["core.server.token"]=adminAuthToken
+    
+            if certificatePath:
+                logger.info("        Adding self signed certifcate path")
+                serverDetails["core.server.certificate"]=certificatePath
 
             print("    Creating properties file: %s" %propertiesFile)
             filePtr = open(propertiesFile, 'w')
@@ -285,6 +298,7 @@ def verify_properties_file(serverURL, adminAuthToken, propertiesFile):
             logger.error("    The URL or token values were not provided")
             print("    The URL or token values were not provided")
             return None
+
 
     else:
         logger.info("    %s already exists" %propertiesFile)
@@ -303,6 +317,11 @@ def verify_properties_file(serverURL, adminAuthToken, propertiesFile):
             configData["core.server.token.orig"] = configData["core.server.token"]
 
         configData["core.server.token"] = adminAuthToken
+
+        if certificatePath:
+            logger.info("        Adding self signed certifcate path")
+            configData["core.server.certificate"]=certificatePath
+
 
         # Now write the data back to the file
         print("    Updating properties file: %s" %propertiesFile)
