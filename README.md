@@ -19,7 +19,7 @@ The script accepts four arguments to be supplied by the user
 - The Code Insight installation directory
 - The URL/FQDN of the Code Insight system
 - An admin authorization token to be used when registering the report into Code Insight  (Required)
-- The path to a pem file for any servers with a self signed certifcate for SSL
+- The path to a pem file for any servers with a self signed certifcate for SSL (Optional)
 
 To run the script on a windows system
     
