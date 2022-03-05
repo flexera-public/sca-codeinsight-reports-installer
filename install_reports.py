@@ -24,6 +24,7 @@ repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-s
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-third-party-evidence.git")
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-comparison.git")
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-claim-files.git")
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-third-party-notices.git")
 
 propertiesFileName = "server_properties.json"
 
@@ -181,7 +182,7 @@ def main():
             print("        Registering report %s" %reportName)
             registrationResponse = subprocess.run(registrationCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             
-            if "has been registed with a report ID" not in registrationResponse.stdout.decode():
+            if "has been registered with a report ID" not in registrationResponse.stdout.decode():
                 logger.debug(registrationResponse.stdout.decode())
                 print("        There was a probem encountered while attempting to register the report")
                 print("            %s" %registrationResponse.stdout.decode())
