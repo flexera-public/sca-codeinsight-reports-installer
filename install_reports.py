@@ -182,8 +182,8 @@ def main():
             print("        Registering report %s" %reportName)
             registrationResponse = subprocess.run(registrationCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             
-            if "has been registered with a report ID" not in registrationResponse.stdout.decode():
-                logger.debug(registrationResponse.stdout.decode())
+            if "has been registered with a report ID" not in registrationResponse.stdout.decode() and "has been registed with a report ID" not in registrationResponse.stdout.decode() :
+                logger.error(registrationResponse.stdout.decode())
                 print("        There was a probem encountered while attempting to register the report")
                 print("            %s" %registrationResponse.stdout.decode())
 
