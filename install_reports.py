@@ -16,15 +16,7 @@ import subprocess
 import shutil
 import stat
 
-repositories = []
-repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-inventory.git")
-repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-sbom.git")
-repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-vulnerabilities.git")
-repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-spdx.git")
-repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-third-party-evidence.git")
-repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-comparison.git")
-repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-claim-files.git")
-repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-third-party-notices.git")
+import report_repositories
 
 propertiesFileName = "server_properties.json"
 
@@ -114,7 +106,7 @@ def main():
         return
 
     # Now install the reports
-    for repository in repositories:
+    for repository in report_repositories.repositories:
         print("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++")
         logger.info("    Installing: %s" %repository)
         print("    Installing: %s" %repository)
