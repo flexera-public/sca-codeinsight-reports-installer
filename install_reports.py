@@ -182,7 +182,11 @@ def main():
             print("        Registering report %s" %reportName)
             registrationResponse = subprocess.run(registrationCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             
-            if "has been registered with a report ID" not in registrationResponse.stdout.decode() and "has been registed with a report ID" not in registrationResponse.stdout.decode() :
+            if "Report registration succeeded!" in registrationResponse.stdout.decode():
+                print("        The report has been reigstered")
+                logging.info("        The report has been reigstered")
+
+            elif "Report registration failed!" in registrationResponse.stdout.decode():
                 logger.error(registrationResponse.stdout.decode())
                 print("        There was a probem encountered while attempting to register the report")
                 print("            %s" %registrationResponse.stdout.decode())
@@ -202,6 +206,11 @@ def main():
                 print("        Verify server/token information and attempt to install again") 
                 sanitize_properties_file(propertiesFile)              
                 sys.exit()
+            else:
+                print("        Unknown response while attempting to register report")
+                logger.error("        Unknown response while attempting to register report")
+                logger.error(registrationResponse.stdout.decode())
+
 
         # Collect the report version for summary
         reportVersion = subprocess.check_output(gitDescribeCommand, shell=True)
@@ -210,7 +219,12 @@ def main():
         # Copy the installation log file to the installer directory
         movedLogFile = os.path.join(installerDirectory, reportName + "_installation.log")
         logger.info("Moving report registration logfile to %s" %movedLogFile)
-        shutil.copyfile(defaultRegistrationLogFileName, movedLogFile)
+        
+        try:
+            shutil.copyfile(defaultRegistrationLogFileName, movedLogFile)
+        except:
+            logger.error("Unable to copy logfile to %s" %movedLogFile)
+            print("    Unable to copy logfile to %s" %movedLogFile)
 
         os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
 
