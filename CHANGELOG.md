@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.0.5] - 2022-05-22
+### Fixed
+- Registreation sucess/failure handling
+### Changed
+- Created report_repositories.py file to hold repository listing
+
 ## [1.0.4] - 2022-03-05
 ### Added
 - Add Third Party Notices report
