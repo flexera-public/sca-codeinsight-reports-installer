@@ -17,6 +17,7 @@ repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-t
 
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-sbom.git")
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-spdx.git")
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-cyclonedx.git")
 
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-third-party-evidence.git")
 
