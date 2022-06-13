@@ -6,10 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.6] - 2022-05-22
+### Added
+- Add CycloneDX SBOM report
 
 ## [1.0.5] - 2022-05-22
 ### Fixed
-- Registreation sucess/failure handling
+- Registration sucess/failure handling
 ### Changed
 - Created report_repositories.py file to hold repository listing
 
