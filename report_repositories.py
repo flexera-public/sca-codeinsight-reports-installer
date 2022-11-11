@@ -12,6 +12,7 @@ repositories = []
 
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-inventory.git")
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-vulnerabilities.git")
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-vulnerability-exclusions.git")
 
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-third-party-notices.git")
 
