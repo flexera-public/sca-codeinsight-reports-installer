@@ -21,6 +21,7 @@ repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-p
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-vulnerabilities.git")
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-vulnerability-exclusions.git")
 
+repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-tasks.git")
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-third-party-evidence.git")
 
 repositories.append("https://github.com/flexera-public/sca-codeinsight-reports-project-comparison.git")
