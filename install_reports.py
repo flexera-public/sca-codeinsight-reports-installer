@@ -157,7 +157,7 @@ def main():
             cloneResponse = subprocess.run(gitCloneCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             logger.debug(cloneResponse.stdout.decode())
 
-            requirementsCommand = pipCommand + " install -r " + reportRequirementsFile
+            requirementsCommand = pipCommand + " install -r " + reportRequirementsFile + " --quiet"
             registrationCommand = pythonCommand + " " + reportRegistrationFile + " -reg"
             os.chdir(reportFolder)
 
@@ -182,9 +182,16 @@ def main():
                 print("            %s" %registrationResponse.stdout.decode())
 
                 # Copy the installation log file to the installer directory
-                movedLogFile = os.path.join(installerDirectory, reportName + "_installation.log")
-                logger.info("Moving report registration logfile to %s" %movedLogFile)
-                shutil.copyfile(defaultRegistrationLogFileName, movedLogFile)
+                if os.path.isfile(defaultRegistrationLogFileName):
+                
+                    movedLogFile = os.path.join(installerDirectory, reportName + "_installation.log")
+                    logger.info("Moving report registration logfile to %s" %movedLogFile)
+                    try:
+                        shutil.copyfile(defaultRegistrationLogFileName, movedLogFile)
+                    except:
+                        logger.error("Unable to copy logfile to %s" %movedLogFile)
+                else:
+                    logger.error("Log file does not exist: %s" %defaultRegistrationLogFileName)
 
                 os.chdir(reportInstallationFolder)
 
@@ -207,14 +214,20 @@ def main():
         reportVersions[reportName] = reportVersion.rstrip().decode()
 
         # Copy the installation log file to the installer directory
-        movedLogFile = os.path.join(installerDirectory, reportName + "_installation.log")
-        logger.info("Moving report registration logfile to %s" %movedLogFile)
+        if os.path.isfile(defaultRegistrationLogFileName):
         
-        try:
-            shutil.copyfile(defaultRegistrationLogFileName, movedLogFile)
-        except:
-            logger.error("Unable to copy logfile to %s" %movedLogFile)
-            print("    Unable to copy logfile to %s" %movedLogFile)
+            movedLogFile = os.path.join(installerDirectory, reportName + "_installation.log")
+            logger.info("Moving report registration logfile to %s" %movedLogFile)
+            print("        Moving report registration logfile to %s" %movedLogFile)
+            try:
+                shutil.copyfile(defaultRegistrationLogFileName, movedLogFile)
+            except:
+                logger.error("Unable to copy logfile to %s" %movedLogFile)
+                print("Unable to copy logfile to %s" %movedLogFile)
+
+        else:
+            print("Log file does not exist: %s" %defaultRegistrationLogFileName)
+            logger.error("Log file does not exist: %s" %defaultRegistrationLogFileName)
 
         os.chdir(reportInstallationFolder)  # Go back to the custom_report_scripts folder for the next iteration
 
