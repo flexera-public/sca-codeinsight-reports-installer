@@ -29,9 +29,8 @@ else:
     pass
 
 installerDirectory = os.path.dirname(os.path.realpath(__file__))
-logfileName = installerDirectory + "/_install_reports.log"
-defaultRegistrationLogFileName = "_custom_report_registration.log" # Default log name for report registration scripts
-
+logfileName = "_" + os.path.basename(__file__).split('.')[0] + ".log"
+defaultRegistrationLogFileName = "_registration.log" # Default log name for report registration scripts
 
 reportRequirementsFile = "requirements.txt"
 reportRegistrationFile = "registration.py"
@@ -52,7 +51,6 @@ else:
 #  Set up logging handler to allow for different levels of logging to be capture
 logging.basicConfig(format='%(asctime)s,%(msecs)-3d  %(levelname)-8s [%(filename)-30s:%(lineno)-4d]  %(message)s', datefmt='%Y-%m-%d:%H:%M:%S', filename=logfileName, filemode='w',level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-logging.getLogger("urllib3").setLevel(logging.WARNING)  # Disable logging for requests module
 
 ####################################################################################
 # Create command line argument options
