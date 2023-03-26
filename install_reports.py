@@ -18,8 +18,6 @@ import stat
 
 import report_repositories
 
-propertiesFileName = "server_properties.json"
-
 ###################################################################################
 # Test the version of python to make sure it's at least the version the script
 # was tested on, otherwise there could be unexpected results
@@ -28,10 +26,15 @@ if sys.version_info <= (3, 6):
 else:
     pass
 
-installerDirectory = os.path.dirname(os.path.realpath(__file__))
 logfileName = "_" + os.path.basename(__file__).split('.')[0] + ".log"
 defaultRegistrationLogFileName = "_registration.log" # Default log name for report registration scripts
 
+###################################################################################
+#  Set up logging handler to allow for different levels of logging to be capture
+logging.basicConfig(format='%(asctime)s,%(msecs)-3d  %(levelname)-8s [%(filename)-30s:%(lineno)-4d]  %(message)s', datefmt='%Y-%m-%d:%H:%M:%S', filename=logfileName, filemode='w',level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+propertiesFileName = "server_properties.json"
 reportRequirementsFile = "requirements.txt"
 reportRegistrationFile = "registration.py"
 gitCloneCommandBase = "git clone --recursive"
@@ -47,41 +50,31 @@ else:
     pipCommand = "pip"    
 
 
-###################################################################################
-#  Set up logging handler to allow for different levels of logging to be capture
-logging.basicConfig(format='%(asctime)s,%(msecs)-3d  %(levelname)-8s [%(filename)-30s:%(lineno)-4d]  %(message)s', datefmt='%Y-%m-%d:%H:%M:%S', filename=logfileName, filemode='w',level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 ####################################################################################
 # Create command line argument options
 parser = argparse.ArgumentParser()
 parser.add_argument('-server', "--server", help="Code Insight server URL - http(s)://FQDN:port")
-parser.add_argument("-token", "--token", help="Auth token with admin access", required=True)
+parser.add_argument("-token", "--token", help="Auth token with admin access")
 parser.add_argument("-installDir", "--installationDirctory", help="Code Insight base installation folder?")
 parser.add_argument("-certificate", "--certificate", help="Path to self signed certificate")
 
 #------------------------------------------------------------------------------------------------------------------------------
 def main():
 
-    # See what if any arguments were provided
     args = parser.parse_args()
-    serverURL = args.server
-    adminAuthToken = args.token
     installDir = args.installationDirctory
 
-    try:
-        certificate = args.certificate
-        certificatePath = os.path.normpath(certificate)
-        os.environ["REQUESTS_CA_BUNDLE"] = certificatePath
-        os.environ["SSL_CERT_FILE"] = certificatePath
-        logger.info("Self signed certificate provied as argument")
-    except:
-        logger.info("No self signed certificate was provied as argument")
-        certificatePath = None
+    installerDirectory = os.path.dirname(__file__)
 
-    reportVersions = {}
+    if installDir is None:
+        # Get the current directory of this script to determine if it is within a Code Insight installation
+        reportsDirectory = os.path.dirname(installerDirectory)
 
-    # verify the supplied installDir or current directoyr is valid
+        if reportsDirectory.endswith("custom_report_scripts"):
+            installDir =  os.path.dirname(reportsDirectory)
+    else:
+        installDir = os.path.normpath(installDir)
+
     reportInstallationFolder = verify_installation_directory(installDir)
 
     if reportInstallationFolder:
@@ -89,19 +82,17 @@ def main():
         print("%s is a valid folder for report installation" %reportInstallationFolder)
 
     else:
-        logger.error("Unable to determine valid Code Insight install folder for reports")
-        print("Unable to determine valid Code Insight install folder for reports")
-        return
+        logger.error("Unable to validate Code Insight install location: %s" %installDir)
+        print("Unable to validate Code Insight install location: %s" %installDir)
+        print(" ** Exiting report installation script")
+        sys.exit()
 
+    # Now that we know that the install location is good is there already a properties file to use?
     propertiesFile = os.path.join(reportInstallationFolder, propertiesFileName)
 
-    # Does a properties file already exist? 
-    propertiesFile = verify_properties_file(serverURL, adminAuthToken, certificate, propertiesFile)
+    propertiesFile, storeToken = verify_properties_file(propertiesFile, args)
 
-    if not propertiesFile:
-        logger.error("Invalid server properties file details")
-        print("Invalid server properties file details")
-        return
+    reportVersions = {}
 
     # Now install the reports
     for repository in report_repositories.repositories:
@@ -201,7 +192,7 @@ def main():
                 except:
                     print("        Manually remove folder: %s" %reportFolder)
                 print("        Verify server/token information and attempt to install again") 
-                sanitize_properties_file(propertiesFile)              
+                sanitize_properties_file(propertiesFile, storeToken)              
                 sys.exit()
             else:
                 print("        Unknown response while attempting to register report")
@@ -233,14 +224,14 @@ def main():
 
     #----------------------------------------------
     # Now that that reports are installed remove the token from the properties file
-    sanitize_properties_file(propertiesFile)
+    sanitize_properties_file(propertiesFile, storeToken)
     
     print("")
     print("**************************************")
     print("Currently Installed Reports")
     for report in sorted(reportVersions):
 
-        print(f"    {report:50} - {reportVersions[report]:10}")
+        print(f"    {report:70} - {reportVersions[report]:10}")
 
 
 #-------------------------------------------------------------------
@@ -250,23 +241,11 @@ def verify_installation_directory(installDir):
     # Was a directory supplied and if so is it valid?
     if installDir:
         if os.path.isdir(installDir):
-            logger.info("    Supplied directory %s  does exist" %installDir)
+            logger.info("    Supplied directory %s does exist" %installDir)
         else:
             logger.error("    Supplied directory %s does not exist" %installDir)
             return None
-
-    else:
-        logger.info("No installation directory passed.  Using current directory.")
-        installDir = os.path.dirname(os.path.realpath(__file__))  # Get the current folder
-        logger.info("Current directory: %s" %installDir)
-
-
-    # At this point we are assuming we have the Code Insight instllation folder or possibly the custom_report_scripts folder
-    if installDir.endswith("custom_report_scripts"):
-        logger.info("The customer_report_script directory could have been passed directly")
-        installDir = installDir[:-22]  # Strip off custom_report_scripts part
-    
-
+  
     # A list of folders that we expect to see within the Code Insight base instllation folder
     expectedFolders = ["tomcat", "jre", "logs", "7-zip", "dbScripts"]
     folders = os.listdir(installDir)
@@ -282,77 +261,129 @@ def verify_installation_directory(installDir):
     if os.path.isdir(reportInstallationFolder):
         logger.info("reportInstallationFolder already exists")
     else:
+        logger.info("Creating reportInstallationFolder")
         os.mkdir(reportInstallationFolder) 
 
     return(reportInstallationFolder)
 
 #-------------------------------------------------------------------
-def verify_properties_file(serverURL, adminAuthToken, certificatePath, propertiesFile):
+def verify_properties_file(propertiesFile, args):
     logger.info("Entering verify_properties_file")
-
-   
-    # Does the properties file alrady exist?
-    if not os.path.isfile(propertiesFile):
-        logger.info("    The properties file does not currently exist")
-
-        # Were values passed by the users?
-        if serverURL and adminAuthToken:
-
-            # Deal with server configuration values
-            serverDetails={}
-            serverDetails["core.server.url"]=serverURL
-            serverDetails["core.server.token"]=adminAuthToken
     
-            if certificatePath:
-                logger.info("        Adding self signed certifcate path")
-                serverDetails["core.server.certificate"]=certificatePath
+    missingServer = False
+    missingToken = False
+    storeToken = False
 
-            print("    Creating properties file: %s" %propertiesFile)
-            filePtr = open(propertiesFile, 'w')
-            json.dump(serverDetails, filePtr)
+    serverURL = args.server
+    adminAuthToken = args.token
+    certificatePath = args.certificate
+
+    # Does the properties file alrady exist?
+    if os.path.isfile(propertiesFile):
+        logger.info("    Attempt to use values from %s" %propertiesFile)
+
+        # Load the config data from the file
+        try:
+            filePtr = open(propertiesFile, "r")
+            configData = json.load(filePtr)
             filePtr.close
+        except:
+            logger.warning("Properties file exists but unable process or open.")
+            print("Properties file exists but unable to process or open.")
+            sys.exit()
 
+        #-----------------------------
+        if serverURL is None:
+            if "core.server.url" in configData:
+                logger.info("Using ServerURL from properties file")
+                serverURL = configData["core.server.url"]
+            else:
+                logger.info("ServerURL not in properties file and not provided by user")
+                missingServer = True
         else:
-            logger.error("    The URL or token values were not provided")
-            print("    The URL or token values were not provided")
-            return None
+            logger.info("Using ServerURL provided by user")
+        
+        #-----------------------------
+        if adminAuthToken is None:
+            if "core.server.token" in configData:
+                if configData["core.server.token"] != "*****":
+                    logger.info("Using token from properties file")
+                    adminAuthToken = configData["core.server.token"]
+                    # Since the installer does not save this value by default it was manually added
+                    # so we need to ensure to keep it's value
+                    storeToken = True
+                else:
+                    logger.info("Token placeholder in properties file and no value provided by user ")
+                    missingToken = True
+            else:
+                logger.info("Token not in properties file and not provided by user")
+                missingToken = True
+        else:
+            logger.info("Using adminAuthToken provided by user")
 
+        #-----------------------------
+        if certificatePath is None:
+            if "core.server.certificate" in configData:
+                certificatePath = configData["core.server.certificate"]        
+        else:
+            logger.info("Using adminAuthToken provided by user")
+
+        if certificatePath is not None:
+            certificatePath = os.path.normpath(certificatePath)
+            os.environ["REQUESTS_CA_BUNDLE"] = certificatePath
+            os.environ["SSL_CERT_FILE"] = certificatePath
 
     else:
-        logger.info("    %s already exists" %propertiesFile)
-        print("    %s already exists" %propertiesFile)
+        logger.info("    The properties file does not currently exist so use arguments passed from commandline")
 
-        # Open the file up to see what's there and compare to what's provided
-        filePtr = open(propertiesFile, "r")
-        configData = json.load(filePtr)
-        filePtr.close
+        if adminAuthToken is None:
+            missingToken = True
+        
+        if serverURL is None:
+            # Prompt user if localhost should be used?
+            print("Code Insight URL not provided or stored within properties file")
+            print("If no value is provied http://localhost:8888 will be used.")
+            serverURL = input("  -  Enter Server URL: ")
 
-        # Always update the server URL
-        configData["core.server.url"]=serverURL
-            
-        # Is there already a token if so back it up to restore later 
-        if "core.server.token" in configData:
-            configData["core.server.token.orig"] = configData["core.server.token"]
+            if serverURL == "":
+                serverURL = "http://localhost:8888"
+                logger.info("        Using default value for server")
 
-        configData["core.server.token"] = adminAuthToken
+    
+    # At this point there should be values for the token and server
+    if missingServer and missingToken:
+        logger.error("    Both the server and token values Code Insight server were not in the properties file and were not provided via the command line.")
+        print("    Both the server and token values Code Insight server were not in the properties file and were not provided via the command line.")
+        sys.exit()
+    elif missingServer:
+        logger.error("    The URL for the Code Insight server was not in the properties file and was not provided via the command line.")
+        print("    The URL for the Code Insight server was not in the properties file and was not provided via the command line.")
+        sys.exit()
 
-        if certificatePath:
-            logger.info("        Adding self signed certifcate path")
-            configData["core.server.certificate"]=certificatePath
+    elif missingToken:
+        logger.error("    The authorizartion token for the Code Insight server was not in the properties file and was not provided via the command line.")
+        print("    The authorizartion token for the Code Insight server was not in the properties file and was not provided via the command line.")
+        sys.exit()
 
+    else:
+        logger.info("    Token and server values have been provided")
 
-        # Now write the data back to the file
-        print("    Updating properties file: %s" %propertiesFile)
-        filePtr = open(propertiesFile, 'w')
-        json.dump(configData, filePtr)
-        filePtr.close
+    configData = {}
+    configData["core.server.url"] = serverURL
+    configData["core.server.token"] = adminAuthToken
+    configData["core.server.certificate"] = certificatePath
 
-    return propertiesFile
+    # Now write the data back to the file for the reports to use
+    print("    Updating properties file: %s" %propertiesFile)
+    filePtr = open(propertiesFile, 'w')
+    json.dump(configData, filePtr, indent=4)
+    filePtr.close
 
-    #TODO  Check the values passed to values in the file currently and prompt for update if needed
+    return propertiesFile, storeToken
+
 
 #-------------------------------------------------------------------
-def sanitize_properties_file(propertiesFile):
+def sanitize_properties_file(propertiesFile, storeToken):
     logger.info("Entering sanitize_properties_file")
 
     # Open the file up to see what's there and compare to what's provided
@@ -360,17 +391,14 @@ def sanitize_properties_file(propertiesFile):
     configData = json.load(filePtr)
     filePtr.close
 
-    # Is there already a token if so back it up to restore later 
-    if "core.server.token.orig" in configData:
-        configData["core.server.token"] = configData["core.server.token.orig"]
-        configData.pop("core.server.token.orig")
-    else:
-        configData.pop("core.server.token")
+    if not storeToken:
+        logger.info("Adding masked token placeholder for auth token properties file")
+        configData["core.server.token"] = "*****"
 
     # Now write the data back to the file
-    print("    Updating properties file: %s" %propertiesFile)
+    print("    Sanitizing properties file: %s" %propertiesFile)
     filePtr = open(propertiesFile, 'w')
-    json.dump(configData, filePtr)
+    json.dump(configData, filePtr, indent=4)
     filePtr.close    
 
     logger.info("Exiting sanitize_properties_file")
