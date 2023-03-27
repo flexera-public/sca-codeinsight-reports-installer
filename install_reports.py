@@ -64,7 +64,7 @@ def main():
     args = parser.parse_args()
     installDir = args.installationDirctory
 
-    installerDirectory = os.path.dirname(__file__)
+    installerDirectory = os.path.dirname(os.path.abspath(__file__))
 
     if installDir is None:
         # Get the current directory of this script to determine if it is within a Code Insight installation
