@@ -5,6 +5,7 @@ The `sca-codeinsight-reports-installer` repository allows users to easily instal
 ## Prerequisites
 
 
+
 **Python Requirements**
 
 A minimum vesion of python 3.5 is required to run this script.  No additional python modules should be required to run this program
@@ -12,6 +13,10 @@ A minimum vesion of python 3.5 is required to run this script.  No additional py
 **Git Requirements**
 
 This script will automatically pull multiple resositories from github so git is required.
+
+## Suggestion
+
+Clone or unzip this repository into the `custom_report_scripts` folder within your Code Insight installation.  By default this report will attempt to use that folder for the installation location for all other reports.  Otherwise the -installDir option will always be required when running this script subsequent times.
 
 ## Usage
 
