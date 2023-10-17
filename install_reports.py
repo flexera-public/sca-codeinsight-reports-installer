@@ -7,14 +7,8 @@ Author : sgeary
 Created On : Mon Nov 08 2021
 File : install_reports.py
 '''
-import sys
-import os
-import logging
-import argparse
-import json
-import subprocess
-import shutil
-import stat
+import sys, os, logging, argparse, json
+import requests, subprocess, shutil, stat
 
 import report_repositories
 
@@ -23,14 +17,19 @@ propertiesFileName = "server_properties.json"
 ###################################################################################
 # Test the version of python to make sure it's at least the version the script
 # was tested on, otherwise there could be unexpected results
-if sys.version_info <= (3, 6):
-    raise Exception("The current version of Python is less than 3.5 which is unsupported.\n Script created/tested against python version 3.8.1. ")
+if sys.version_info < (3, 6):
+    raise Exception("The current version of Python is less than 3.6 which is unsupported.\n Script created/tested against python version 3.6.18 ")
 else:
     pass
 
 installerDirectory = os.path.dirname(os.path.realpath(__file__))
 logfileName = "_" + os.path.basename(__file__).split('.')[0] + ".log"
 defaultRegistrationLogFileName = "_registration.log" # Default log name for report registration scripts
+
+###################################################################################
+#  Set up logging handler to allow for different levels of logging to be capture
+logging.basicConfig(format='%(asctime)s,%(msecs)-3d  %(levelname)-8s [%(filename)-30s:%(lineno)-4d]  %(message)s', datefmt='%Y-%m-%d:%H:%M:%S', filename=logfileName, filemode='w',level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 reportRequirementsFile = "requirements.txt"
 reportRegistrationFile = "registration.py"
@@ -47,61 +46,28 @@ else:
     pipCommand = "pip"    
 
 
-###################################################################################
-#  Set up logging handler to allow for different levels of logging to be capture
-logging.basicConfig(format='%(asctime)s,%(msecs)-3d  %(levelname)-8s [%(filename)-30s:%(lineno)-4d]  %(message)s', datefmt='%Y-%m-%d:%H:%M:%S', filename=logfileName, filemode='w',level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 ####################################################################################
 # Create command line argument options
 parser = argparse.ArgumentParser()
 parser.add_argument('-server', "--server", help="Code Insight server URL - http(s)://FQDN:port")
-parser.add_argument("-token", "--token", help="Auth token with admin access", required=True)
+parser.add_argument("-token", "--token", help="Auth token with admin access")
 parser.add_argument("-installDir", "--installationDirctory", help="Code Insight base installation folder?")
-parser.add_argument("-certificate", "--certificate", help="Path to self signed certificate")
+parser.add_argument("-certificatePath", "--certificatePath", help="Path to self signed certificate")
 
 #------------------------------------------------------------------------------------------------------------------------------
 def main():
 
-    # See what if any arguments were provided
-    args = parser.parse_args()
-    serverURL = args.server
-    adminAuthToken = args.token
-    installDir = args.installationDirctory
-
-    try:
-        certificate = args.certificate
-        certificatePath = os.path.normpath(certificate)
-        os.environ["REQUESTS_CA_BUNDLE"] = certificatePath
-        os.environ["SSL_CERT_FILE"] = certificatePath
-        logger.info("Self signed certificate provied as argument")
-    except:
-        logger.info("No self signed certificate was provied as argument")
-        certificatePath = None
-
     reportVersions = {}
 
-    # verify the supplied installDir or current directoyr is valid
-    reportInstallationFolder = verify_installation_directory(installDir)
+    args = parser.parse_args()
 
-    if reportInstallationFolder:
-        logger.info("%s is a valid folder for report installation" %reportInstallationFolder)
-        print("%s is a valid folder for report installation" %reportInstallationFolder)
+    systemDetails = validate_arguments(args)
 
-    else:
-        logger.error("Unable to determine valid Code Insight install folder for reports")
-        print("Unable to determine valid Code Insight install folder for reports")
-        return
-
-    propertiesFile = os.path.join(reportInstallationFolder, propertiesFileName)
-
-    # Does a properties file already exist? 
-    propertiesFile = verify_properties_file(serverURL, adminAuthToken, certificate, propertiesFile)
-
-    if not propertiesFile:
-        logger.error("Invalid server properties file details")
-        print("Invalid server properties file details")
-        return
+    reportInstallationFolder = systemDetails["reportInstallationFolder"]
+    propertiesFile = systemDetails["propertiesFile"]
+   
+    # Create or update the properties files since the report registration script uses it 
+    manage_properties_file(systemDetails)
 
     # Now install the reports
     for repository in report_repositories.repositories:
@@ -243,29 +209,163 @@ def main():
         print(f"    {report:50} - {reportVersions[report]:10}")
 
 
+#------------------------------------------------------------
+def validate_arguments(args):
+
+    installDir = args.installationDirctory
+    serverURL = args.server
+    adminAuthToken = args.token
+    certificatePath = args.certificatePath
+
+    systemDetails = {}
+
+    # Verify the Code Insight installation to ensure there is a location for the reports to go
+    reportInstallationFolder =  verify_installation_directory(installDir)
+    if "error" in reportInstallationFolder:
+        print(reportInstallationFolder["error"])
+        sys.exit()
+    
+    # Now that we know th location is there already an existing properties file we can use?
+    propertiesFile = os.path.join(reportInstallationFolder, propertiesFileName)
+
+    # Does the properties file alrady exist?
+    if os.path.isfile(propertiesFile):
+        logger.info("    Properties file %s was found" %propertiesFile)
+        print("    Properties file %s was found" %propertiesFile)
+        
+        # Open the file up to see what's there and compare to what's provided
+        filePtr = open(propertiesFile, "r")
+        configData = json.load(filePtr)
+        filePtr.close
+    else:
+        logger.info("    The properties file does not currently exist. Relying on command line arugments")
+        print("    The properties file does not currently exist. Relying on command line arugments")
+        configData = {}
+
+    if serverURL is None:
+        # There was no server information passed so check configData    
+        if "core.server.url" in configData:
+            if configData["core.server.url"] is None:
+                logger.error("    The Code Insight Server URL was not provided and is not contained in the properties file")
+                logger.error("               Please provide the server and port URL via the -server flag")
+                print("    **ERROR**  The Code Insight Server URL was not provided and is not contained in the properties file")
+                print("               Please provide the server and port URL via the -server flag")
+                sys.exit()
+            else:
+                serverURL = configData["core.server.url"]
+                print("    Using server details from properties file:  %s" %serverURL)
+                logger.info("    Using server details from properties file:  %s" %serverURL)
+        else:
+            logger.error("               Server details not in properties file.  Please provide the server details via the -server flag")
+            print("    **ERROR**  Server details not in properties file.  Please provide the server details via the -server flag")
+            sys.exit()
+
+    else:
+        if serverURL.endswith("/"):
+            serverURL = serverURL[:-1]
+
+        print("    Using server details provided as argurment: %s" %serverURL)
+        logger.info("    Using server details provided as argurment: %s" %serverURL)
+
+    if adminAuthToken is None:
+        # There was no token information passed so check configData    
+        if "core.server.token" in configData:
+            if configData["core.server.token"] is None:
+                logger.error("    **ERROR**  The Code Insight Admin authorization token was not provided and is not contained in the properties file")
+                logger.error("               Please provide the admin auth token the -token flag")
+                print("    **ERROR**  The Code Insight Admin authorization token was not provided and is not contained in the properties file")
+                print("               Please provide the admin auth token the -token flag")
+                sys.exit()
+            else:
+                adminAuthToken = configData["core.server.token"]
+                print("    Using autorization token from properties file.")
+                logger.info("    Using autorization token from properties file.")
+        else:
+            logger.error("               Token details not in properties file.  Please provide the token details via the -token flag")
+            print("    **ERROR**  Token details not in properties file.  Please provide the token details via the -token flag")
+            sys.exit()
+    else:
+        print("    Using autorization token provided as argurment.")
+        logger.info("    Using autorization token provided as argurment.")
+
+    # Get the Code Insight release details to determine if the server and token are valid
+    releaseDetails = get_release_details(serverURL, adminAuthToken)
+
+    if "fnci.release.name" in releaseDetails:
+        releaseVersion = releaseDetails["fnci.release.name"]
+        print("    Successfully verified connection to Code Insight server")
+        print("      -  Code Insight Version: %s" %releaseVersion)
+    elif "error" in releaseDetails:
+        errorMessage = str(releaseDetails["error"])
+        
+        if "Max retries exceeded" in errorMessage:
+            message = '''** There appears to be an issue commuincatiing with the Code Insight Server.  \n    ** Please check the host and port values.'''
+            logger.error("    %s" %message)
+            print("    %s" %message)
+
+        elif "Unauthorized" in errorMessage:
+            message = '''** The host and port values appear to be correct but the authorization token is not valid.  \n    ** Please check the token and ensure the user has admistrative perimssions.'''
+            logger.error("    %s" %message)
+            print("    %s" %message)
+
+        else:
+            print("Unhandled exception.  Please check log for details")
+            logger.error(errorMessage)
+       
+        print("Exiting installer")
+        sys.exit()
+
+    else:
+        logger.error("Unknown Error: %s" %releaseDetails)
+        print("    Exiting installer due to unknown error. Please see log for details")
+
+    try:
+
+        certificatePath = os.path.normpath(certificatePath)
+        os.environ["REQUESTS_CA_BUNDLE"] = certificatePath
+        os.environ["SSL_CERT_FILE"] = certificatePath
+        logger.info("Self signed certificate provied as argument")
+    except:
+        logger.info("No self signed certificate was provied as argument")
+        certificatePath = None
+
+    systemDetails = {}
+    systemDetails["releaseVersion"] = releaseVersion
+    systemDetails["reportInstallationFolder"] = reportInstallationFolder
+    systemDetails["propertiesFile"] = propertiesFile
+    systemDetails["serverURL"] = serverURL
+    systemDetails["adminAuthToken"] = adminAuthToken
+    systemDetails["certificatePath"] = certificatePath
+
+    return systemDetails
+
 #-------------------------------------------------------------------
 def verify_installation_directory(installDir):
     logger.info("Entering verify_installation_directory")
 
     # Was a directory supplied and if so is it valid?
     if installDir:
+
         if os.path.isdir(installDir):
-            logger.info("    Supplied directory %s  does exist" %installDir)
+            # make the path an absolute path
+            installDir =os.path.abspath(installDir)
+            logger.info("    Supplied directory %s does exist" %installDir)
         else:
             logger.error("    Supplied directory %s does not exist" %installDir)
-            return None
+            return {"error" : "The supplied directory of %s does not exist on this system." %installDir}
 
     else:
         logger.info("No installation directory passed.  Using current directory.")
-        installDir = os.path.dirname(os.path.realpath(__file__))  # Get the current folder
-        logger.info("Current directory: %s" %installDir)
+        installerDir = os.path.dirname(os.path.realpath(__file__))  # Get the current folder of the installer
+        print("No installation directory passed.  Attempting to use current location to determine installation directory.")
+        logger.info("No installation directory passed.  Attempting to use current location to determine installation directory.")
 
+        installDir = (os.path.dirname(installerDir))
 
-    # At this point we are assuming we have the Code Insight instllation folder or possibly the custom_report_scripts folder
+    # At this point we are assuming we have the Code Insight installation folder or possibly the custom_report_scripts folder
     if installDir.endswith("custom_report_scripts"):
         logger.info("The customer_report_script directory could have been passed directly")
-        installDir = installDir[:-22]  # Strip off custom_report_scripts part
-    
+        installDir = (os.path.dirname(installDir))  
 
     # A list of folders that we expect to see within the Code Insight base instllation folder
     expectedFolders = ["tomcat", "jre", "logs", "7-zip", "dbScripts"]
@@ -274,7 +374,7 @@ def verify_installation_directory(installDir):
     if not set(expectedFolders).issubset(set(folders)):
         # This doesn't look like a Code Insight folder
         logger.error("This does not appear to be a Code Insight installation")
-        return None
+        return {"error" : "The directory %s does not appear to be a Code Insight installation." %installDir}
 
     reportInstallationFolder = os.path.join(installDir, "custom_report_scripts")
 
@@ -283,77 +383,72 @@ def verify_installation_directory(installDir):
         logger.info("reportInstallationFolder already exists")
     else:
         os.mkdir(reportInstallationFolder) 
+    
+    logger.info("Report Installation Folder: %s" %reportInstallationFolder)
 
     return(reportInstallationFolder)
 
 #-------------------------------------------------------------------
-def verify_properties_file(serverURL, adminAuthToken, certificatePath, propertiesFile):
-    logger.info("Entering verify_properties_file")
+def manage_properties_file(systemDetails):
+    logger.info("Entering manage_properties_file")
 
-   
+    propertiesFile = systemDetails["propertiesFile"]
+    serverURL = systemDetails["serverURL"]
+    adminAuthToken = systemDetails["adminAuthToken"]
+    certificatePath =  systemDetails["certificatePath"]
+
+    # Deal with server configuration values
+    serverDetails={}
+    serverDetails["core.server.url"]=serverURL
+    serverDetails["core.server.token"]=adminAuthToken
+    serverDetails["core.server.certificate"]=certificatePath
+
     # Does the properties file alrady exist?
     if not os.path.isfile(propertiesFile):
-        logger.info("    The properties file does not currently exist")
-
-        # Were values passed by the users?
-        if serverURL and adminAuthToken:
-
-            # Deal with server configuration values
-            serverDetails={}
-            serverDetails["core.server.url"]=serverURL
-            serverDetails["core.server.token"]=adminAuthToken
-    
-            if certificatePath:
-                logger.info("        Adding self signed certifcate path")
-                serverDetails["core.server.certificate"]=certificatePath
-
-            print("    Creating properties file: %s" %propertiesFile)
-            filePtr = open(propertiesFile, 'w')
-            json.dump(serverDetails, filePtr)
-            filePtr.close
-
-        else:
-            logger.error("    The URL or token values were not provided")
-            print("    The URL or token values were not provided")
-            return None
-
-
+        print("    Creating properties file: %s" %propertiesFile)
     else:
-        logger.info("    %s already exists" %propertiesFile)
-        print("    %s already exists" %propertiesFile)
-
-        # Open the file up to see what's there and compare to what's provided
-        filePtr = open(propertiesFile, "r")
-        configData = json.load(filePtr)
-        filePtr.close
-
-        # Always update the server URL
-        configData["core.server.url"]=serverURL
-            
-        # Is there already a token if so back it up to restore later 
-        if "core.server.token" in configData:
-            configData["core.server.token.orig"] = configData["core.server.token"]
-
-        configData["core.server.token"] = adminAuthToken
-
-        if certificatePath:
-            logger.info("        Adding self signed certifcate path")
-            configData["core.server.certificate"]=certificatePath
-
-
-        # Now write the data back to the file
         print("    Updating properties file: %s" %propertiesFile)
-        filePtr = open(propertiesFile, 'w')
-        json.dump(configData, filePtr)
-        filePtr.close
 
-    return propertiesFile
+    filePtr = open(propertiesFile, 'w')
+    json.dump(serverDetails, filePtr, indent=4)
+    filePtr.close
 
-    #TODO  Check the values passed to values in the file currently and prompt for update if needed
+
+
+#----------------------------------------------------
+def get_release_details(baseURL, authToken):
+    logger.debug("Entering get_release_details.")
+
+    RESTAPI_BASEURL = "%s/codeinsight/api" %(baseURL)
+    RESTAPI_URL = "%s/v1/agent/supports" %(RESTAPI_BASEURL)
+
+    headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken}   
+
+    ##########################################################################   
+    # Make the REST API call with the project data           
+    try:
+        response = requests.get(RESTAPI_URL, headers=headers)
+    except requests.exceptions.RequestException as error:  # Just catch all errors
+        return {"error" : error}
+
+    ###############################################################################
+    # We at least received a response from Code Insight so check the status to see
+    # what happened if there was an error or the expected data
+    if response.status_code == 200:
+        releaseDetails = json.loads(response.json()["Content: "])
+        return releaseDetails
+    else:
+        return {"error" : response.text}
+
+
+
 
 #-------------------------------------------------------------------
 def sanitize_properties_file(propertiesFile):
     logger.info("Entering sanitize_properties_file")
+    logger.info("Taking no action to mask token from file")
+    logger.info("Exiting sanitize_properties_file")
+    return
 
     # Open the file up to see what's there and compare to what's provided
     filePtr = open(propertiesFile, "r")
